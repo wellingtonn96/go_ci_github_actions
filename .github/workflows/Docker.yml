@@ -38,5 +38,7 @@ jobs:
         # Push is a shorthand for --output=type=registry
         push: true
         # Generate SBOM attestation for the build (shorthand for --attest=type=sbom)
-        tags: wellingtno96/go_ci:${{ github.ref_name }}
+        tags: |
+          wellingtno96/go_ci:latest
+          wellingtno96/go_ci:${{ github.sha }}
         # GitHub Token used to authenticate against a repository for Git context
