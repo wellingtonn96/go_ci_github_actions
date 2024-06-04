@@ -1,4 +1,4 @@
-name: Go
+name: Go CI/CD
 
 on:
   push:
@@ -9,16 +9,31 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        go_version: ['1.18']
+        os: ['ubuntu-latest']
     env:
       HOST: localhost
       PORT: 5432
-      USER: root
+      USER: postgres
       PASSWORD: root
-      DBNAME: root
-    strategy:
-      matrix:
-        go_version: ['>=1.18']
-        os: ['ubuntu-latest']
+      DBNAME: postgres
+      SSL_MODE: disable
+    services:
+      postgres:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: root
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
     - uses: actions/checkout@v3
 
@@ -27,29 +42,25 @@ jobs:
       with:
         go-version: ${{ matrix.go_version }}
       
-    - name: Build-DB
-      run: docker-compose build
-      
-    - name: Create-DB
-      run: docker-compose up -d
+    - name: Wait for DB to be ready
+      run: until pg_isready -h localhost -p 5432; do sleep 1; done
 
-    - name: Test
-      run: go test -v main_test.go 
-      
+    - name: Run Tests
+      run: go test -v ./...
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: go build -v main.go
+      run: go build -v -o main main.go
 
-    - name: Upload a Build Artifact
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v3.1.0
       with:
         name: programa
         path: main
-        
+
   docker:
     needs: build
     uses: ./.github/workflows/Docker.yml
